@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+import "github.com/vine-io/apimachinery/apis/meta/v1/meta.proto";
+
+option go_package = "pb";
+
+// +gen:dao
+// +gen:object
+message Epoch {
+    // +gen:inline
+    metav1.TypeMeta type_meta = 1;
+
+    // +gen:pk
+    string id = 2;
+    int64 term = 3;
+    int64 index = 4;
+}
+
+// +gen:dao
+// +gen:object
+message Product {
+    // +gen:inline
+    metav1.TypeMeta type_meta = 1;
+
+    // +gen:pk
+    string id = 2;
+
+    int64 date = 3;
+    string company = 4;
+}
+
+message SnapshotMarshaller {
+    repeated Product products = 1;
+}
+
+message GetProductRequest {
+    string id = 1;
+}
+
+message GetProductResponse {
+    Product product = 1;
+}
+
+message CreateProductRequest {
+    string company = 1;
+}
+
+message CreateProductResponse {
+    Product product = 1;
+}
+
+// +gen:openapi
+service Test {
+    // +gen:get=/api/v1/products/{id}
+    rpc GetProduct (GetProductRequest) returns (GetProductResponse);
+    // +gen:post=/api/v1/products
+    rpc CreateProduct (CreateProductRequest) returns (CreateProductResponse);
+}

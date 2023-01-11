@@ -1,0 +1,11 @@
+.vscode
+.idea
+
+*.tar
+*.gz
+*.exe
+*.bz2
+
+_output
+
+example
