@@ -1,0 +1,13 @@
+.vscode
+.idea
+
+*.tar
+*.gz
+*.exe
+*.bz2
+
+_output
+
+*.sqlite3
+snap
+wal

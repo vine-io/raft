@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package metav1;
+
+option go_package = "github.com/vine-io/apimachinery/apis/meta/v1;metav1";
+option java_package = "io.vine.apimachinery.apis.meta.v1";
+option java_multiple_files = true;
+
+message TypeMeta {
+    // 资源类型
+    string kind = 1;
+
+    // 资源版本信息
+    string apiVersion = 2;
+}
+
+message ObjectMeta {
+    // 资源名称
+    string name = 1;
+
+    // +gen:pk
+    // 资源 id
+    string uid = 2;
+
+    // 资源版本信息
+    int64 resourceVersion = 3;
+
+    // 资源描述信息
+    string description = 4;
+
+    // 资源命名空间
+    string namespace = 5;
+
+    // 资源创建时间
+    int64 creationTimestamp = 6;
+
+    // 资源更新时间
+    int64 updateTimestamp = 7;
+
+    // 删除时间
+    int64 deletionTimestamp = 8;
+
+    // 资源标签
+    map<string, string> labels = 9;
+
+    // 资源注解
+    // 只读
+    map<string, string> annotations = 10;
+
+    // 集群名称
+    string clusterName = 11;
+
+    // 资源关系信息
+    // 该资源示例能稳定运行的依赖资源
+    repeated OwnerReference references = 12;
+}
+
+message OwnerReference {
+    string apiVersion = 1;
+
+    string kind = 2;
+
+    string name = 3;
+
+    string uuid = 4;
+}
+
+enum StateCode {
+    Unknown = 0;
+    // 资源可用
+    Ready = 1;
+    // 资源不可用
+    NotReady = 2;
+}
+
+// 资源状态
+message State {
+    StateCode code = 1;
+    // code != 0 时，显示错误信息
+    string message = 2;
+}
