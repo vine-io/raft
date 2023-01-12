@@ -5,12 +5,11 @@ go 1.19
 require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/uuid v1.3.0
-	github.com/vine-io/apimachinery v1.4.16
-	github.com/vine-io/plugins/dao/sqlite v1.4.16
+	github.com/vine-io/apimachinery v1.4.17
+	github.com/vine-io/plugins/dao/sqlite v1.4.17
+	github.com/vine-io/plugins/logger/zap v1.4.17
 	github.com/vine-io/raft v0.0.0-00010101000000-000000000000
-	github.com/vine-io/vine v1.4.16
-	go.etcd.io/etcd/server/v3 v3.5.6
-	go.uber.org/zap v1.24.0
+	github.com/vine-io/vine v1.4.17
 	google.golang.org/grpc v1.52.0
 )
 
@@ -42,6 +41,7 @@ require (
 	github.com/miekg/dns v1.1.50 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/natefinch/lumberjack v2.0.0+incompatible // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
@@ -60,8 +60,10 @@ require (
 	go.etcd.io/etcd/client/pkg/v3 v3.5.6 // indirect
 	go.etcd.io/etcd/pkg/v3 v3.5.6 // indirect
 	go.etcd.io/etcd/raft/v3 v3.5.6 // indirect
+	go.etcd.io/etcd/server/v3 v3.5.6 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
+	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.5.0 // indirect
@@ -75,7 +77,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace (
-	github.com/vine-io/raft => ../
-	github.com/vine-io/vine => ../../vine
-)
+replace github.com/vine-io/raft => ../

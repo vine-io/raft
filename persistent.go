@@ -54,12 +54,6 @@ type Applier interface {
 	RecoverFromSnapshot(ctx context.Context, snapshot []byte) error
 }
 
-type PersistentStorage interface {
-	Get(ctx context.Context, option *GetOption) (*GetResult, error)
-	GetSnapshot(ctx context.Context) ([]byte, error)
-	RecoverFromSnapshot(ctx context.Context, term, index uint64, snapshot []byte) error
-}
-
 type persistentStorage struct {
 	ctx         context.Context
 	lg          *zap.Logger
@@ -67,11 +61,11 @@ type persistentStorage struct {
 	snapshotter *snap.Snapshotter
 }
 
-func NewPersistentStorage(lg *zap.Logger, applier Applier, snapshotter *snap.Snapshotter, commitC <-chan *commit) (PersistentStorage, error) {
+func newPersistentStorage(ctx context.Context, lg *zap.Logger, applier Applier, snapshotter *snap.Snapshotter, commitC <-chan *commit) (*persistentStorage, error) {
 
 	s := &persistentStorage{
 		lg:          lg,
-		ctx:         context.Background(),
+		ctx:         ctx,
 		applier:     applier,
 		snapshotter: snapshotter,
 	}

@@ -8,14 +8,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/uuid"
 	pb "github.com/vine-io/raft/test/proto"
 	"github.com/vine-io/vine/core/client"
 	"github.com/vine-io/vine/core/client/grpc"
 )
 
 func main() {
-	c := flag.String("company", "", "")
+	addr := flag.String("addr", "127.0.0.1:12379", "server address")
+	c := flag.String("company", "c1", "")
 
 	flag.Parse()
 
@@ -32,8 +32,7 @@ func main() {
 
 	ctx := context.TODO()
 
-	fmt.Println(conn.GetProduct(ctx, &pb.GetProductRequest{Id: uuid.New().String()}))
-	rsp, err := conn.CreateProduct(ctx, &pb.CreateProductRequest{Company: *c}, client.WithAddress("127.0.0.1:33379"))
+	rsp, err := conn.CreateProduct(ctx, &pb.CreateProductRequest{Company: *c}, client.WithAddress(*addr))
 	if err != nil {
 		log.Fatal(err)
 	}

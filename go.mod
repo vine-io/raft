@@ -3,9 +3,8 @@ module github.com/vine-io/raft
 go 1.19
 
 require (
-	github.com/json-iterator/go v1.1.12
-	github.com/vine-io/apimachinery v1.4.16
-	github.com/vine-io/vine v1.4.16
+	github.com/vine-io/apimachinery v1.4.17
+	github.com/vine-io/vine v1.4.17
 	go.etcd.io/etcd/client/pkg/v3 v3.5.6
 	go.etcd.io/etcd/raft/v3 v3.5.6
 	go.etcd.io/etcd/server/v3 v3.5.6
@@ -21,8 +20,6 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/prometheus/client_golang v1.11.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.26.0 // indirect

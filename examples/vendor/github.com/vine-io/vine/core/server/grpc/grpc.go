@@ -939,14 +939,14 @@ func (g *grpcServer) Start() error {
 			hlr = grpcHandlerFunc(g.svc, v)
 		}
 
-		serve := http.Server{
-			Addr:    g.opts.Address,
+		serve := &http.Server{
 			Handler: hlr,
 		}
 
 		if err := serve.Serve(ts); err != nil {
 			log.Errorf("gRPC Server start error: %v", err)
 		}
+
 	}()
 
 	go func() {

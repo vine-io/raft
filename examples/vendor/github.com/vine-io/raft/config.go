@@ -2,6 +2,7 @@ package raft
 
 import (
 	"fmt"
+	"path/filepath"
 )
 
 var (
@@ -21,7 +22,9 @@ type Config struct {
 	// name for node
 	Name string
 	// path to wal and snapshot
-	Dir string
+	Dir     string
+	waldir  string
+	snapdir string
 	// raft peer URLs
 	Peers []string
 	// name for raft cluster
@@ -48,7 +51,7 @@ type Config struct {
 	MaxUncommittedEntriesSize uint64
 }
 
-func NewConfig(name, dir string, peers []string, join bool, getSnapshot func() ([]byte, error)) (Config, error) {
+func NewConfig(name, dir string, peers []string, join bool) (Config, error) {
 
 	if len(peers) != 0 {
 		_, err := peerUrl(peers, name)
@@ -68,11 +71,12 @@ func NewConfig(name, dir string, peers []string, join bool, getSnapshot func() (
 		Id:                        int(hash(name)),
 		Name:                      name,
 		Dir:                       dir,
+		waldir:                    filepath.Join(dir, "wal"),
+		snapdir:                   filepath.Join(dir, "snap"),
 		Peers:                     peers,
 		ClusterName:               DefaultCluster,
 		ClusterID:                 int(hash(DefaultCluster)),
 		Join:                      join,
-		GetSnapshot:               getSnapshot,
 		SnapCount:                 DefaultSnapshotCount,
 		SnapshotCatchUpEntriesN:   DefaultSnapshotCatchUpEntriesN,
 		ElectionTick:              DefaultElectionTick,

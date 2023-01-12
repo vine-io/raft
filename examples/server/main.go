@@ -15,76 +15,84 @@
 package main
 
 import (
-	"context"
+	"flag"
+	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/vine-io/apimachinery/runtime"
 	"github.com/vine-io/apimachinery/storage"
 	"github.com/vine-io/plugins/dao/sqlite"
+	"github.com/vine-io/plugins/logger/zap"
 	"github.com/vine-io/raft"
 	pb "github.com/vine-io/raft/test/proto"
+	"github.com/vine-io/raft/test/server/hello"
 	"github.com/vine-io/vine"
 	"github.com/vine-io/vine/lib/dao"
-	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
-	"go.uber.org/zap"
+	log "github.com/vine-io/vine/lib/logger"
 )
 
 func main() {
-	logger := zap.NewExample()
+	dir := flag.String("dir", ".", "data directory")
+	name := flag.String("name", "raft1", "name for raft node")
+	peer := flag.String("peer", "raft1=http://127.0.0.1:33380", "raft cluster peer")
+	address := flag.String("addr", "127.0.0.1:33379", "service address")
 
-	_ = os.MkdirAll("snap", 0755)
-	snapshotter := snap.New(logger, "snap")
+	flag.Parse()
 
-	dialect := sqlite.NewDialect(sqlite.DriverName("sqlite3"), dao.DSN("db.sqlite3"))
+	zapLog, err := zap.New(zap.WithJSONEncode())
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	log.DefaultLogger = zapLog
+	logger := zapLog.GetLogger()
+
+	_ = os.MkdirAll(*dir, 0755)
+
+	dialect := sqlite.NewDialect(sqlite.DriverName("sqlite3"), dao.DSN(filepath.Join(*dir, "db.sqlite3")))
 	if err := dialect.Init(); err != nil {
-		logger.Sugar().Fatal(err)
+		log.Fatal(err)
 	}
 	dao.DefaultDialect = dialect
 
-	s := vine.NewService(vine.Address("127.0.0.1:33379"), vine.Dialect(dialect))
+	s := vine.NewService(vine.Address(*address), vine.Dialect(dialect), vine.Cmd(nil))
 
 	s.Init()
 
 	scheme := runtime.NewScheme()
 	if err := pb.AddToScheme(scheme); err != nil {
-		logger.Sugar().Fatal(err)
+		log.Fatal(err)
 	}
 
 	factory := storage.NewStorageFactory()
 	if err := pb.AddToFactory(factory); err != nil {
-		logger.Sugar().Fatal(err)
+		log.Fatal(err)
 	}
 
-	applier, err := NewApplier(scheme, factory)
+	applier, err := hello.NewApplier(scheme, factory)
 	if err != nil {
-		logger.Sugar().Error(err)
+		log.Error(err)
 	}
-	_ = applier
-	_ = snapshotter
 
-	commitC := raft.NewCommitChannel(10)
-	errorC := make(chan error)
-
-	ps, err := raft.NewPersistentStorage(logger, applier, snapshotter, commitC)
+	config, err := raft.NewConfig(*name, *dir, strings.Split(*peer, ","), false)
 	if err != nil {
-		logger.Sugar().Error(err)
+		log.Fatal(err)
 	}
 
-	getSnapshot := func() ([]byte, error) { return ps.GetSnapshot(context.TODO()) }
-	config, err := raft.NewConfig("raft1", "wal", []string{"raft1=http://127.0.0.1:12380"}, false, getSnapshot)
+	raftNode, err := raft.NewRaftNode(logger, applier, config)
 	if err != nil {
-		logger.Sugar().Fatal(err)
+		log.Fatal(err)
 	}
 
-	raftNode := raft.NewRaftNode(logger, snapshotter, config, commitC, errorC)
-
-	server := NewServer(raftNode, scheme, ps)
+	server := hello.NewServer(raftNode, scheme)
 
 	if err = pb.RegisterTestHandler(s.Server(), server); err != nil {
-		logger.Sugar().Fatal(err)
+		log.Fatal(err)
 	}
 
 	if err = s.Run(); err != nil {
-		logger.Sugar().Fatal(err)
+		log.Fatal(err)
 	}
 }

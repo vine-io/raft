@@ -1,33 +1,43 @@
-# 编译
+# 介绍
+
+[raft](https://github.com/vine-io/raft) 提供 raft 算法功能，可以使用 [vine] (https://github.com/vine-io/vine) 配合使用
+
 ```bash
-mkdir _output
-go build -o _output/raft-gorm
+// 核心接口
+type RaftNode interface {
+	Get(ctx context.Context, option *GetOption) (*GetResult, error)
+	Propose(ctx context.Context, data []byte) error
+	ProposeConfChange(ctx context.Context, cc *raftpb.ConfChange) error
+	Stop(ctx context.Context) error
+	Err() <-chan error
+}
 ```
 
 # 启动集群
+
+[examples](https://github.com/vine-io/raft/examples) 目录中提供一个简单的实例
+
+编译 server
+```bash
+cd examples
+mkdir _output
+go build -tags json1 -o _output/raft-server server/main.go
+```
+
+启动集群
 ```bash
 cd _output
-./raft-gorm --id 1 --cluster http://127.0.0.1:12379,http://127.0.0.1:22379,http://127.0.0.1:32379 --port 12380
 
-./raft-gorm --id 2 --cluster http://127.0.0.1:12379,http://127.0.0.1:22379,http://127.0.0.1:32379 --port 22380
+./raft-server -dir=raft1 -name raft1 --peer=raft1=http://127.0.0.1:12380,raft2=http://127.0.0.1:22380,raft3=http://127.0.0.1:32380 -addr=127.0.0.1:12379
 
-./raft-gorm --id 3 --cluster http://127.0.0.1:12379,http://127.0.0.1:22379,http://127.0.0.1:32379 --port 32380
+./raft-server -dir=raft2 -name raft2 --peer=raft1=http://127.0.0.1:12380,raft2=http://127.0.0.1:22380,raft3=http://127.0.0.1:32380 -addr=127.0.0.1:22379
+
+./raft-server -dir=raft3 -name raft3 --peer=raft1=http://127.0.0.1:12380,raft2=http://127.0.0.1:22380,raft3=http://127.0.0.1:32380 -addr=127.0.0.1:32379
 ```
 
 # 验证
 ```bash
-curl -L http://127.0.0.1:12380 -XPUT -d '{"op": "create", "target": { "code": "1234", "price": 122}}'
+cd examples
 
-curl -L http://127.0.0.1:12380\?id\=1                                                                  
-{"id":1,"createdAt":"2022-12-20T11:34:28.144063+08:00","updatedAt":"2022-12-20T11:34:28.144063+08:00","deletedAt":null,"code":"1234","price":122}%
-
-curl -L http://127.0.0.1:12380 -XPUT -d '{"op": "update", "target": {"id":1, "code": "12345", "price": 122}}'
-
-curl -L http://127.0.0.1:22380\?id\=1
-{"id":1,"createdAt":"2022-12-20T11:34:28.144114+08:00","updatedAt":"2022-12-20T11:35:17.15704+08:00","deletedAt":null,"code":"12345","price":122}%                                        
-
-curl -L http://127.0.0.1:12380/1 -XPUT -d '{"op": "delete", "target": {"id":1, "code": "12345", "price": 122}}'
-
-curl -L http://127.0.0.1:32380\?id\=1                                                                         
-Failed to GET
-```# raft
+go run client/main.go -addr=127.0.0.1:12379 -company=c17
+```
