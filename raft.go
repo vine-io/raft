@@ -35,13 +35,13 @@ import (
 )
 
 type RaftNode interface {
-	Propose(ctx context.Context, op *Operation) error
+	Propose(ctx context.Context, data []byte) error
 	ProposeConfChange(ctx context.Context, cc *raftpb.ConfChange) error
 	Stop(ctx context.Context) error
 }
 
 type commit struct {
-	data       *CommitData
+	frame      *frame
 	applyDoneC chan<- struct{}
 }
 
@@ -109,12 +109,7 @@ func NewRaftNode(logger *zap.Logger, snapshotter *snap.Snapshotter, config Confi
 	return rc
 }
 
-func (rc *raftNode) Propose(ctx context.Context, op *Operation) error {
-	data, err := op.Marshal()
-	if err != nil {
-		return err
-	}
-
+func (rc *raftNode) Propose(ctx context.Context, data []byte) error {
 	return rc.node.Propose(ctx, data)
 }
 
@@ -171,7 +166,7 @@ func (rc *raftNode) publishEntries(ents []raftpb.Entry) (<-chan struct{}, bool) 
 		return nil, true
 	}
 
-	data := &CommitData{}
+	fr := &frame{}
 	for i := range ents {
 		switch ents[i].Type {
 		case raftpb.EntryNormal:
@@ -180,12 +175,8 @@ func (rc *raftNode) publishEntries(ents []raftpb.Entry) (<-chan struct{}, bool) 
 				break
 			}
 
-			op := &Operation{}
-			err := op.Unmarshal(ents[i].Data)
-			if err == nil {
-				data.Term, data.Index = ents[i].Term, ents[i].Index
-				data.Ops = append(data.Ops, op)
-			}
+			fr.term, fr.index = ents[i].Term, ents[i].Index
+			fr.data = append(fr.data, ents[i].Data)
 		case raftpb.EntryConfChange:
 			var cc raftpb.ConfChange
 			cc.Unmarshal(ents[i].Data)
@@ -207,10 +198,10 @@ func (rc *raftNode) publishEntries(ents []raftpb.Entry) (<-chan struct{}, bool) 
 
 	var applyDoneC chan struct{}
 
-	if len(data.Ops) > 0 {
+	if len(fr.data) > 0 {
 		applyDoneC = make(chan struct{}, 1)
 		select {
-		case rc.commitC <- &commit{data, applyDoneC}:
+		case rc.commitC <- &commit{fr, applyDoneC}:
 		case <-rc.stopc:
 			return nil, false
 		}

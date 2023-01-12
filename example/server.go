@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/vine-io/apimachinery/runtime"
 	"github.com/vine-io/raft"
 	pb "github.com/vine-io/raft/test/proto"
 	"github.com/vine-io/vine"
@@ -13,22 +14,29 @@ import (
 var _ pb.TestHandler = (*HelloServer)(nil)
 
 type HelloServer struct {
-	rnode raft.RaftNode
-	ps    raft.PersistentStorage
+	rnode  raft.RaftNode
+	scheme runtime.Scheme
+	ps     raft.PersistentStorage
 }
 
-func NewServer(rnode raft.RaftNode, ps raft.PersistentStorage) *HelloServer {
-	return &HelloServer{rnode: rnode, ps: ps}
+func NewServer(rnode raft.RaftNode, scheme runtime.Scheme, ps raft.PersistentStorage) *HelloServer {
+	return &HelloServer{rnode: rnode, scheme: scheme, ps: ps}
 }
 
 func (s *HelloServer) GetProduct(ctx *vine.Context, in *pb.GetProductRequest, out *pb.GetProductResponse) error {
-	product := &pb.Product{}
-	err := s.ps.Get(ctx, product, in.Id)
+
+	obj := s.scheme.Default(&pb.Product{})
+
+	result, err := s.ps.Get(ctx, &raft.GetOption{
+		GVK:  obj.GetObjectKind().GroupVersionKind(),
+		Id:   in.Id,
+		List: false,
+	})
 	if err != nil {
 		return err
 	}
 
-	out = &pb.GetProductResponse{Product: product}
+	out = &pb.GetProductResponse{Product: result.Out.(*pb.Product)}
 	return nil
 }
 
@@ -39,9 +47,15 @@ func (s *HelloServer) CreateProduct(ctx *vine.Context, in *pb.CreateProductReque
 		Date:    time.Now().Unix(),
 		Company: in.Company,
 	}
-	op := &raft.Operation{Op: raft.Create, Target: product}
+	body, _ := product.Marshal()
+	frame := &pb.Frame{
+		Op:   pb.Op_Create,
+		Gvk:  s.scheme.Default(product).GetObjectKind().GroupVersionKind().String(),
+		Body: body,
+	}
+	data, _ := frame.Marshal()
 
-	err := s.rnode.Propose(context.TODO(), op)
+	err := s.rnode.Propose(context.TODO(), data)
 	if err != nil {
 		return err
 	}

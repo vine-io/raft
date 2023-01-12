@@ -27,36 +27,63 @@ func NewApplier(schema runtime.Scheme, factory storage.Factory) (raft.Applier, e
 	return applier, nil
 }
 
-func (a *DaoApplier) List(ctx context.Context, option raft.ListOption, iterFunc raft.IterFunc) (int64, error) {
-	sc, _, err := a.selectStorage(option.In)
+func (a *DaoApplier) Get(ctx context.Context, option *raft.GetOption) (*raft.GetResult, error) {
+
+	in, err := a.Schema.New(option.GVK)
 	if err != nil {
-		return 0, err
+		return nil, err
+	}
+
+	if !option.List && option.Id != "" {
+		err = a.getById(ctx, in, option.Id)
+		if err != nil {
+			return nil, err
+		}
+		return &raft.GetResult{Out: in}, nil
+	}
+
+	if !option.List && option.Id == "" {
+		err = a.Find(ctx, in, option.Exprs...)
+		if err != nil {
+			return nil, err
+		}
+		return &raft.GetResult{Out: in}, nil
+	}
+
+	list, count, err := a.List(ctx, option.Page, option.Size, in, option.Exprs...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &raft.GetResult{List: true, Out: list, Total: &count}, nil
+}
+
+func (a *DaoApplier) List(ctx context.Context, page, size int32, in runtime.Object, exprs ...clause.Expression) ([]runtime.Object, int64, error) {
+	sc, _, err := a.selectStorage(in)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	var list []runtime.Object
 	var n int64
-	if option.In != nil && option.Page != 0 && option.Size != 0 {
+	if in != nil && page != 0 && size != 0 {
 		orderBy := clause.OrderBy{
 			Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "creation_timestamp"}, Desc: true}},
 		}
-		list, n, err = sc.Cond(orderBy).Cond(option.Exprs...).FindPage(ctx, option.Page, option.Size)
+		list, n, err = sc.Cond(orderBy).Cond(exprs...).FindPage(ctx, page, size)
 	} else {
-		list, err = sc.Cond(option.Exprs...).FindAll(ctx)
+		list, err = sc.Cond(exprs...).FindAll(ctx)
 		n = int64(len(list))
 	}
 
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 
-	for idx, item := range list {
-		iterFunc(item, idx)
-	}
-
-	return n, nil
+	return list, n, nil
 }
 
-func (a *DaoApplier) Get(ctx context.Context, in runtime.Object, id string) error {
+func (a *DaoApplier) getById(ctx context.Context, in runtime.Object, id string) error {
 	sc, _, err := a.selectStorage(in)
 	if err != nil {
 		return err
@@ -71,13 +98,13 @@ func (a *DaoApplier) Get(ctx context.Context, in runtime.Object, id string) erro
 	return nil
 }
 
-func (a *DaoApplier) Find(ctx context.Context, in runtime.Object) error {
+func (a *DaoApplier) Find(ctx context.Context, in runtime.Object, exprs ...clause.Expression) error {
 	sc, _, err := a.selectStorage(in)
 	if err != nil {
 		return err
 	}
 
-	out, err := sc.FindOne(ctx)
+	out, err := sc.Cond(exprs...).FindOne(ctx)
 	if err != nil {
 		return err
 	}
@@ -85,6 +112,44 @@ func (a *DaoApplier) Find(ctx context.Context, in runtime.Object) error {
 	in.DeepFrom(out)
 	in = a.Schema.Default(in)
 	return nil
+}
+
+func (a *DaoApplier) Put(ctx context.Context, data []byte) error {
+
+	frame := &pb.Frame{}
+	err := frame.Unmarshal(data)
+	if err != nil {
+		return err
+	}
+	gvk := schema.FromGVK(frame.Gvk)
+	obj, err := a.Schema.New(gvk)
+	if err != nil {
+		return err
+	}
+
+	v, ok := obj.(interface {
+		runtime.Object
+		Unmarshal([]byte) error
+	})
+	if !ok {
+		return fmt.Errorf("bad body")
+	}
+
+	err = v.Unmarshal(frame.Body)
+	if err != nil {
+		return err
+	}
+
+	switch frame.Op {
+	case pb.Op_Create:
+		err = a.Create(ctx, v)
+	case pb.Op_Update:
+		err = a.Update(ctx, v)
+	case pb.Op_Delete:
+		err = a.Delete(ctx, v, true)
+	}
+
+	return err
 }
 
 func (a *DaoApplier) Create(ctx context.Context, in runtime.Object) error {
@@ -149,7 +214,7 @@ func (a *DaoApplier) GetEpoch(ctx context.Context) (uint64, uint64, error) {
 	return uint64(epoch.Term), uint64(epoch.Index), nil
 }
 
-func (a *DaoApplier) SetEpoch(ctx context.Context, term, index uint64) error {
+func (a *DaoApplier) ApplyEpoch(ctx context.Context, term, index uint64) error {
 	epoch := &pb.Epoch{}
 
 	_ = a.Find(ctx, epoch)

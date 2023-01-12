@@ -17,72 +17,45 @@ package raft
 import (
 	"context"
 
-	json "github.com/json-iterator/go"
-	"github.com/vine-io/apimachinery/runtime"
+	"github.com/vine-io/apimachinery/schema"
 	"github.com/vine-io/vine/lib/dao/clause"
 	"go.etcd.io/etcd/raft/v3/raftpb"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
 	"go.uber.org/zap"
 )
 
-type ListOption struct {
-	In         runtime.Object
-	Page, Size int32
-	Exprs      []clause.Expression
+type GetOption struct {
+	GVK   schema.GroupVersionKind
+	Id    string
+	List  bool
+	Page  int32
+	Size  int32
+	Exprs []clause.Expression
 }
 
-type Op string
-
-const (
-	Create Op = "create"
-	Update Op = "update"
-	Delete Op = "delete"
-)
-
-type Operation struct {
-	Op     Op             `json:"op"`
-	Target runtime.Object `json:"target"`
+type GetResult struct {
+	List  bool
+	Out   interface{}
+	Total *int64
 }
 
-func (o *Operation) GetOp() Op {
-	return o.Op
+type frame struct {
+	term  uint64
+	index uint64
+	data  [][]byte
 }
-
-func (o *Operation) GetObject() runtime.Object {
-	return o.Target
-}
-
-func (o *Operation) Marshal() ([]byte, error) {
-	return json.Marshal(o)
-}
-
-func (o *Operation) Unmarshal(data []byte) error {
-	return json.Unmarshal(data, &o)
-}
-
-type CommitData struct {
-	Term  uint64
-	Index uint64
-	Ops   []*Operation
-}
-
-type IterFunc func(item runtime.Object, index int)
 
 type Applier interface {
-	List(ctx context.Context, option ListOption, iterFunc IterFunc) (int64, error)
-	Get(ctx context.Context, in runtime.Object, id string) error
-	Create(ctx context.Context, in runtime.Object) error
-	Update(ctx context.Context, in runtime.Object) error
-	Delete(ctx context.Context, in runtime.Object, soft bool) error
+	Get(ctx context.Context, option *GetOption) (*GetResult, error)
+	Put(ctx context.Context, data []byte) error
 	GetEpoch(ctx context.Context) (uint64, uint64, error)
-	SetEpoch(ctx context.Context, term, index uint64) error
+	ApplyEpoch(ctx context.Context, term, index uint64) error
 	GetSnapshot(ctx context.Context) ([]byte, error)
 	RecoverFromSnapshot(ctx context.Context, snapshot []byte) error
 }
 
 type PersistentStorage interface {
-	List(ctx context.Context, option ListOption, iterFunc IterFunc) (int64, error)
-	Get(ctx context.Context, in runtime.Object, id string) error
+	Get(ctx context.Context, option *GetOption) (*GetResult, error)
 	GetSnapshot(ctx context.Context) ([]byte, error)
 	RecoverFromSnapshot(ctx context.Context, term, index uint64, snapshot []byte) error
 }
@@ -119,12 +92,8 @@ func NewPersistentStorage(lg *zap.Logger, applier Applier, snapshotter *snap.Sna
 	return s, nil
 }
 
-func (s *persistentStorage) List(ctx context.Context, option ListOption, iter IterFunc) (int64, error) {
-	return s.applier.List(ctx, option, iter)
-}
-
-func (s *persistentStorage) Get(ctx context.Context, in runtime.Object, id string) error {
-	return s.applier.Get(ctx, in, id)
+func (s *persistentStorage) Get(ctx context.Context, option *GetOption) (*GetResult, error) {
+	return s.applier.Get(ctx, option)
 }
 
 func (s *persistentStorage) readCommits(commitC <-chan *commit) {
@@ -144,23 +113,15 @@ func (s *persistentStorage) readCommits(commitC <-chan *commit) {
 			continue
 		}
 
-		cTerm, cIndex := cc.data.Term, cc.data.Index
+		cTerm, cIndex := cc.frame.term, cc.frame.index
 
 		term, index, _ := s.applier.GetEpoch(s.ctx)
 
 		if cTerm >= term && cIndex > index {
-			for _, o := range cc.data.Ops {
-				switch o.GetOp() {
-				case Create:
-					s.applier.Create(s.ctx, o.GetObject())
-				case Update:
-					s.applier.Update(s.ctx, o.GetObject())
-				case Delete:
-					s.applier.Delete(s.ctx, o.GetObject(), true)
-				}
+			for _, item := range cc.frame.data {
+				_ = s.applier.Put(s.ctx, item)
 			}
-
-			_ = s.applier.SetEpoch(s.ctx, cTerm, cIndex)
+			_ = s.applier.ApplyEpoch(s.ctx, cTerm, cIndex)
 		}
 
 		close(cc.applyDoneC)
@@ -189,5 +150,5 @@ func (s *persistentStorage) RecoverFromSnapshot(ctx context.Context, term, index
 		return err
 	}
 
-	return s.applier.SetEpoch(ctx, term, index)
+	return s.applier.ApplyEpoch(ctx, term, index)
 }

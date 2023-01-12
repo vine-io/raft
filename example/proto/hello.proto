@@ -4,6 +4,18 @@ import "github.com/vine-io/apimachinery/apis/meta/v1/meta.proto";
 
 option go_package = "pb";
 
+enum Op {
+    Create = 0;
+    Update = 1;
+    Delete = 2;
+}
+
+message Frame {
+    Op op = 1;
+    string gvk = 2;
+    bytes body = 3;
+}
+
 // +gen:dao
 // +gen:object
 message Epoch {
