@@ -133,6 +133,7 @@ func NewRaftNode(logger *zap.Logger, applier Applier, config Config) (RaftNode, 
 	// rest of structure populated after WAL replay
 	err = rc.startRaft()
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 
