@@ -217,7 +217,7 @@ func (rc *raftNode) publishEntries(ents []raftpb.Entry) (<-chan struct{}, bool) 
 			fr.data = append(fr.data, ents[i].Data)
 		case raftpb.EntryConfChange:
 			var cc raftpb.ConfChange
-			cc.Unmarshal(ents[i].Data)
+			_ = cc.Unmarshal(ents[i].Data)
 			rc.confState = *rc.node.ApplyConfChange(cc)
 			switch cc.Type {
 			case raftpb.ConfChangeAddNode:
@@ -278,7 +278,7 @@ func (rc *raftNode) openWAL(snapshot *raftpb.Snapshot) (*wal.WAL, error) {
 		if err != nil {
 			return nil, fmt.Errorf("create wal error (%v)", err)
 		}
-		w.Close()
+		_ = w.Close()
 	}
 
 	walsnap := walpb.Snapshot{}
@@ -308,11 +308,13 @@ func (rc *raftNode) replayWAL() *wal.WAL {
 	}
 	rc.raftStorage = raft.NewMemoryStorage()
 	if snapshot != nil {
+		// ignore error
 		_ = rc.raftStorage.ApplySnapshot(*snapshot)
 	}
+	// ignore error
 	_ = rc.raftStorage.SetHardState(st)
 
-	// append to storage so raft starts at the right place in log
+	// append to storage so raft starts at the right place in log, ignore error
 	_ = rc.raftStorage.Append(ents)
 
 	return w
