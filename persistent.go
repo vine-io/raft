@@ -26,10 +26,10 @@ import (
 	"context"
 
 	"github.com/vine-io/apimachinery/schema"
-	"github.com/vine-io/vine/lib/dao/clause"
 	"go.etcd.io/etcd/raft/v3/raftpb"
 	"go.etcd.io/etcd/server/v3/etcdserver/api/snap"
 	"go.uber.org/zap"
+	"gorm.io/gorm/clause"
 )
 
 type GetOption struct {

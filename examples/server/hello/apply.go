@@ -10,20 +10,23 @@ import (
 	"github.com/vine-io/apimachinery/runtime"
 	"github.com/vine-io/apimachinery/schema"
 	"github.com/vine-io/apimachinery/storage"
+	"github.com/vine-io/apimachinery/storage/dao"
 	"github.com/vine-io/raft"
 	pb "github.com/vine-io/raft/test/proto"
-	"github.com/vine-io/vine/lib/dao/clause"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var _ raft.Applier = (*DaoApplier)(nil)
 
 type DaoApplier struct {
+	DB      *gorm.DB
 	Schema  runtime.Scheme
 	Factory storage.Factory
 }
 
-func NewApplier(schema runtime.Scheme, factory storage.Factory) (raft.Applier, error) {
-	applier := &DaoApplier{schema, factory}
+func NewApplier(db *gorm.DB, schema runtime.Scheme, factory storage.Factory) (raft.Applier, error) {
+	applier := &DaoApplier{db, schema, factory}
 	return applier, nil
 }
 
@@ -50,7 +53,7 @@ func (a *DaoApplier) Get(ctx context.Context, option *raft.GetOption) (*raft.Get
 		return &raft.GetResult{Out: in}, nil
 	}
 
-	list, count, err := a.List(ctx, option.Page, option.Size, in, option.Exprs...)
+	list, count, err := a.List(ctx, option.Page, option.Size, in)
 	if err != nil {
 		return nil, err
 	}
@@ -58,23 +61,24 @@ func (a *DaoApplier) Get(ctx context.Context, option *raft.GetOption) (*raft.Get
 	return &raft.GetResult{List: true, Out: list, Total: &count}, nil
 }
 
-func (a *DaoApplier) List(ctx context.Context, page, size int32, in runtime.Object, exprs ...clause.Expression) ([]runtime.Object, int64, error) {
+func (a *DaoApplier) List(ctx context.Context, page, size int32, in runtime.Object) ([]runtime.Object, int64, error) {
 	sc, _, err := a.selectStorage(in)
 	if err != nil {
 		return nil, 0, err
 	}
 
+	_ = sc
 	var list []runtime.Object
 	var n int64
-	if in != nil && page != 0 && size != 0 {
-		orderBy := clause.OrderBy{
-			Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "creation_timestamp"}, Desc: true}},
-		}
-		list, n, err = sc.Cond(orderBy).Cond(exprs...).FindPage(ctx, page, size)
-	} else {
-		list, err = sc.Cond(exprs...).FindAll(ctx)
-		n = int64(len(list))
-	}
+	//if in != nil && page != 0 && size != 0 {
+	//	orderBy := clause.OrderBy{
+	//		Columns: []clause.OrderByColumn{{Column: clause.Column{Name: "creation_timestamp"}, Desc: true}},
+	//	}
+	//	list, n, err = sc.Cond(orderBy).Cond(exprs...).FindPage(ctx, page, size)
+	//} else {
+	//	list, err = sc.Cond(exprs...).FindAll(ctx)
+	//	n = int64(len(list))
+	//}
 
 	if err != nil {
 		return nil, 0, err
@@ -89,11 +93,11 @@ func (a *DaoApplier) getById(ctx context.Context, in runtime.Object, id string) 
 		return err
 	}
 
-	out, err := sc.Cond(clause.Cond().Op(clause.EqOp).Build("id", id)).FindOne(ctx)
+	out, err := sc.Cond(dao.Cond().Build("id", id)).FindOne(ctx)
 	if err != nil {
 		return err
 	}
-	in.DeepFrom(out)
+	in.DeepFromObject(out)
 	in = a.Schema.Default(in)
 	return nil
 }
@@ -109,7 +113,7 @@ func (a *DaoApplier) Find(ctx context.Context, in runtime.Object, exprs ...claus
 		return err
 	}
 
-	in.DeepFrom(out)
+	in.DeepFromObject(out)
 	in = a.Schema.Default(in)
 	return nil
 }
@@ -170,7 +174,7 @@ func (a *DaoApplier) Create(ctx context.Context, in runtime.Object) error {
 	if err != nil {
 		return err
 	}
-	in.DeepFrom(out)
+	in.DeepFromObject(out)
 
 	return nil
 }
@@ -185,7 +189,7 @@ func (a *DaoApplier) Update(ctx context.Context, in runtime.Object) error {
 	if err != nil {
 		return err
 	}
-	in.DeepFrom(out)
+	in.DeepFromObject(out)
 
 	return nil
 }
@@ -231,7 +235,7 @@ func (a *DaoApplier) ApplyEpoch(ctx context.Context, term, index uint64) error {
 func (a *DaoApplier) GetSnapshot(ctx context.Context) ([]byte, error) {
 
 	snapshot := &pb.SnapshotMarshaller{}
-	snapshot.Products, _ = pb.ProductStorageBuilder().FindAllEntities(ctx)
+	snapshot.Products, _ = pb.NewProductStorage(a.DB, &pb.Product{}).XXFindAll(ctx)
 
 	return snapshot.Marshal()
 }
@@ -243,10 +247,11 @@ func (a *DaoApplier) RecoverFromSnapshot(ctx context.Context, data []byte) error
 		return err
 	}
 
-	_ = pb.ProductStorageBuilder().BatchDelete(ctx, true)
-	for _, item := range snapshot.Products {
-		pb.FromProduct(item).Create(ctx)
-	}
+	//_ = pb.ProductStorageBuilder().BatchDelete(ctx, true)
+	//pb.NewProductStorage(a.DB, &pb.Product{}).
+	//for _, item := range snapshot.Products {
+	//	pb.FromProduct(item).Create(ctx)
+	//}
 
 	return nil
 }
@@ -254,7 +259,7 @@ func (a *DaoApplier) RecoverFromSnapshot(ctx context.Context, data []byte) error
 func (a *DaoApplier) selectStorage(in runtime.Object) (storage.Storage, schema.GroupVersionKind, error) {
 	in = a.Schema.Default(in)
 	gvk := in.GetObjectKind().GroupVersionKind()
-	sc, err := a.Factory.NewStorage(in)
+	sc, err := a.Factory.NewStorage(a.DB, in)
 	if err != nil {
 		return nil, gvk, fmt.Errorf("don't support '%v' schema", gvk.String())
 	}

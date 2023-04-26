@@ -72,44 +72,47 @@ func (s *service) Name() string {
 // Init initialises options. Additionally, it calls cmd.Init
 // which parses command line flags. cmd.Init is only called
 // on first Init.
-func (s *service) Init(opts ...Option) {
+func (s *service) Init(opts ...Option) error {
 	// process options
 	for _, o := range opts {
 		o(&s.opts)
 	}
 
+	var err error
 	s.once.Do(func() {
-		if s.opts.Cmd != nil {
-			// set cmd name
-			if len(s.opts.Cmd.App().Name) == 0 {
-				s.opts.Cmd.App().Name = s.Server().Options().Name
-			}
 
-			// Initialise the command flags, overriding new service
-			if err := s.opts.Cmd.Init(
+		if s.opts.Cmd != nil {
+
+			options := []cmd.Option{
 				cmd.Broker(&s.opts.Broker),
 				cmd.Registry(&s.opts.Registry),
 				cmd.Client(&s.opts.Client),
 				cmd.Config(&s.opts.Config),
 				cmd.Server(&s.opts.Server),
 				cmd.Cache(&s.opts.Cache),
-				cmd.Dialect(&s.opts.Dialect),
-			); err != nil {
-				logger.Fatal(err)
+			}
+
+			if len(s.opts.Cmd.Options().Name) == 0 {
+				options = append(options, cmd.Name(s.opts.Server.Options().Name))
+			}
+			if len(s.opts.Cmd.Options().Version) == 0 {
+				options = append(options, cmd.Version(s.opts.Server.Options().Version))
+			}
+
+			// Initialise the command flags, overriding new service
+			if err = s.opts.Cmd.Init(options...); err != nil {
+				return
 			}
 		}
 
-		s.opts.BeforeStop = append(s.opts.BeforeStop, func() error {
-			s.opts.Scheduler.Stop()
-			return nil
-		})
-
 		// Explicitly set the table name to the service name
 		name := s.opts.Server.Options().Name
-		if err := s.opts.Cache.Init(cache.Table(name)); err != nil {
-			logger.Fatal(err)
+		if err = s.opts.Cache.Init(cache.Table(name)); err != nil {
+			return
 		}
 	})
+
+	return err
 }
 
 func (s *service) Options() Options {
@@ -147,6 +150,12 @@ func (s *service) Start() error {
 func (s *service) Stop() error {
 	var gerr error
 
+	select {
+	case <-s.opts.Context.Done():
+	default:
+		s.opts.Cancel()
+	}
+
 	for _, fn := range s.opts.BeforeStop {
 		if err := fn(); err != nil {
 			gerr = err
@@ -182,6 +191,7 @@ func (s *service) Run() error {
 	select {
 	// wait on kill signal
 	case <-ch:
+		s.opts.Cancel()
 	// wait on context cancel
 	case <-s.opts.Context.Done():
 	}

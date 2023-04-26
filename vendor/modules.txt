@@ -22,8 +22,6 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/jinzhu/now v1.1.5
-## explicit; go 1.12
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 ## explicit
 github.com/matttproud/golang_protobuf_extensions/pbutil
@@ -44,12 +42,11 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/vine-io/apimachinery v1.4.17
-## explicit; go 1.17
+# github.com/stretchr/testify v1.8.1
+## explicit; go 1.13
+# github.com/vine-io/apimachinery v1.6.5
+## explicit; go 1.18
 github.com/vine-io/apimachinery/schema
-# github.com/vine-io/vine v1.4.17
-## explicit; go 1.17
-github.com/vine-io/vine/lib/dao/clause
 # github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2
 ## explicit
 github.com/xiang90/probing
@@ -138,3 +135,6 @@ google.golang.org/protobuf/types/descriptorpb
 google.golang.org/protobuf/types/known/anypb
 google.golang.org/protobuf/types/known/durationpb
 google.golang.org/protobuf/types/known/timestamppb
+# gorm.io/gorm v1.24.5
+## explicit; go 1.16
+gorm.io/gorm/clause

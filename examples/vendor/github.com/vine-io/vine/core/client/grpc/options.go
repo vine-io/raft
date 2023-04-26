@@ -32,48 +32,10 @@ import (
 	"github.com/vine-io/vine/core/client"
 )
 
-var (
-	// DefaultPoolMaxStreams maximum streams on a connections (20)
-	DefaultPoolMaxStreams = 20
-
-	// DefaultPoolMaxIdle maximum idle conns of a pool (50)
-	DefaultPoolMaxIdle = 50
-
-	// DefaultMaxRecvMsgSize maximum message that client can receive (100 MB)
-	DefaultMaxRecvMsgSize = 1024 * 1024 * 100
-
-	// DefaultMaxSendMsgSize maximum message that client can send (100 MB)
-	DefaultMaxSendMsgSize = 1024 * 1024 * 100
-)
-
-type poolMaxStreams struct{}
-type poolMaxIdle struct{}
 type codecsKey struct{}
 type tlsAuth struct{}
-type maxRecvMsgSizeKey struct{}
-type maxSendMsgSizeKey struct{}
 type grpcDialOptions struct{}
 type grpcCallOptions struct{}
-
-// PoolMaxStreams maximum streams on a connection
-func PoolMaxStreams(n int) client.Option {
-	return func(o *client.Options) {
-		if o.Context == nil {
-			o.Context = context.Background()
-		}
-		o.Context = context.WithValue(o.Context, poolMaxStreams{}, n)
-	}
-}
-
-// PoolMaxIdle maximum idle conns of a pool
-func PoolMaxIdle(d int) client.Option {
-	return func(o *client.Options) {
-		if o.Context == nil {
-			o.Context = context.Background()
-		}
-		o.Context = context.WithValue(o.Context, poolMaxIdle{}, d)
-	}
-}
 
 // Codec gRPC Codec to be used to encode/decode requests for a given content type
 func Codec(contentType string, c encoding.Codec) client.Option {
@@ -100,33 +62,13 @@ func AuthTLS(t *tls.Config) client.Option {
 	}
 }
 
-// MaxRecvMsgSize set the maximum size of message that client can receive
-func MaxRecvMsgSize(s int) client.Option {
-	return func(o *client.Options) {
-		if o.Context == nil {
-			o.Context = context.Background()
-		}
-		o.Context = context.WithValue(o.Context, maxRecvMsgSizeKey{}, s)
-	}
-}
-
-// MaxSendMsgSize set the maximum size of message that client can send.
-func MaxSendMsgSize(s int) client.Option {
-	return func(o *client.Options) {
-		if o.Context == nil {
-			o.Context = context.Background()
-		}
-		o.Context = context.WithValue(o.Context, maxSendMsgSizeKey{}, s)
-	}
-}
-
 // DialOptions to be used to configure gRPC dial options
-func DialOptions(opts ...grpc.DialOption) client.CallOption {
-	return func(o *client.CallOptions) {
-		if o.Context == nil {
-			o.Context = context.Background()
+func DialOptions(opts ...grpc.DialOption) client.Option {
+	return func(o *client.Options) {
+		if o.CallOptions.Context == nil {
+			o.CallOptions.Context = context.Background()
 		}
-		o.Context = context.WithValue(o.Context, grpcDialOptions{}, opts)
+		o.CallOptions.Context = context.WithValue(o.Context, grpcDialOptions{}, opts)
 	}
 }
 

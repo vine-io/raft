@@ -8,7 +8,6 @@ import (
 	"github.com/vine-io/apimachinery/runtime"
 	"github.com/vine-io/raft"
 	pb "github.com/vine-io/raft/test/proto"
-	"github.com/vine-io/vine"
 )
 
 var _ pb.TestHandler = (*HelloServer)(nil)
@@ -22,7 +21,7 @@ func NewServer(rnode raft.RaftNode, scheme runtime.Scheme) *HelloServer {
 	return &HelloServer{rnode: rnode, scheme: scheme}
 }
 
-func (s *HelloServer) GetProduct(ctx *vine.Context, in *pb.GetProductRequest, out *pb.GetProductResponse) error {
+func (s *HelloServer) GetProduct(ctx context.Context, in *pb.GetProductRequest, out *pb.GetProductResponse) error {
 
 	obj := s.scheme.Default(&pb.Product{})
 
@@ -39,7 +38,7 @@ func (s *HelloServer) GetProduct(ctx *vine.Context, in *pb.GetProductRequest, ou
 	return nil
 }
 
-func (s *HelloServer) CreateProduct(ctx *vine.Context, in *pb.CreateProductRequest, out *pb.CreateProductResponse) error {
+func (s *HelloServer) CreateProduct(ctx context.Context, in *pb.CreateProductRequest, out *pb.CreateProductResponse) error {
 
 	product := &pb.Product{
 		Id:      uuid.New().String(),

@@ -4,14 +4,25 @@ package openapi;
 
 option go_package = "github.com/vine-io/vine/lib/api/handler/openapi/proto;openapi";
 
+import "github.com/vine-io/vine/lib/api/api.proto";
+
 service OpenAPIService {
     rpc GetOpenAPIDoc (GetOpenAPIDocRequest) returns (GetOpenAPIDocResponse);
+    rpc GetEndpoint(GetEndpointRequest) returns (GetEndpointResponse);
 }
 
 message GetOpenAPIDocRequest {}
 
 message GetOpenAPIDocResponse {
     repeated OpenAPI apis = 1;
+}
+
+message GetEndpointRequest {
+    string name = 1;
+}
+
+message GetEndpointResponse {
+    map<string, api.Endpoint> endpoints = 1;
 }
 
 message OpenAPI {
@@ -108,6 +119,7 @@ message PathRequestBody {
 message PathRequestBodyContent {
     ApplicationContent applicationJson = 1;
     ApplicationContent applicationXml = 2;
+    ApplicationContent applicationYaml = 3;
 }
 
 message ApplicationContent {

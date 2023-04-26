@@ -23,14 +23,14 @@ import (
 
 	"github.com/vine-io/apimachinery/runtime"
 	"github.com/vine-io/apimachinery/storage"
-	"github.com/vine-io/plugins/dao/sqlite"
 	"github.com/vine-io/plugins/logger/zap"
 	"github.com/vine-io/raft"
 	pb "github.com/vine-io/raft/test/proto"
 	"github.com/vine-io/raft/test/server/hello"
 	"github.com/vine-io/vine"
-	"github.com/vine-io/vine/lib/dao"
 	log "github.com/vine-io/vine/lib/logger"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -51,13 +51,7 @@ func main() {
 
 	_ = os.MkdirAll(*dir, 0755)
 
-	dialect := sqlite.NewDialect(sqlite.DriverName("sqlite3"), dao.DSN(filepath.Join(*dir, "db.sqlite3")))
-	if err := dialect.Init(); err != nil {
-		log.Fatal(err)
-	}
-	dao.DefaultDialect = dialect
-
-	s := vine.NewService(vine.Address(*address), vine.Dialect(dialect), vine.Cmd(nil))
+	s := vine.NewService(vine.Address(*address), vine.Cmd(nil))
 
 	s.Init()
 
@@ -66,12 +60,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	factory := storage.NewStorageFactory()
-	if err := pb.AddToFactory(factory); err != nil {
+	db, err := gorm.Open(sqlite.Open(filepath.Join(*dir, "raft.db")), &gorm.Config{})
+	if err != nil {
 		log.Fatal(err)
 	}
 
-	applier, err := hello.NewApplier(scheme, factory)
+	factory := storage.NewStorageFactory()
+	if err = pb.AddToBuilder(db, factory); err != nil {
+		log.Fatal(err)
+	}
+
+	applier, err := hello.NewApplier(db, scheme, factory)
 	if err != nil {
 		log.Error(err)
 	}

@@ -29,11 +29,36 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/spf13/pflag"
 	"github.com/vine-io/vine/core/codec"
 	"github.com/vine-io/vine/core/registry"
 	log "github.com/vine-io/vine/lib/logger"
 	usignal "github.com/vine-io/vine/util/signal"
 )
+
+var (
+	DefaultAddress          = ":0"
+	DefaultName             = "go.vine.server"
+	DefaultVersion          = "latest"
+	DefaultId               = uuid.New().String()
+	DefaultServer           Server
+	DefaultRegisterCheck    = func(context.Context) error { return nil }
+	DefaultRegisterInterval = time.Second * 20
+	DefaultRegisterTTL      = time.Second * 30
+
+	Flag = pflag.NewFlagSet("server", pflag.ExitOnError)
+)
+
+func init() {
+	Flag.String("server.default", "", "Server for vine")
+	Flag.String("server.name", "", "Name of the server")
+	Flag.String("server.address", "", "Bind address for the server")
+	Flag.String("server.id", "", "Id of the server")
+	Flag.String("server.advertise", "", "Use instead of the server-address when registering with discovery")
+	Flag.StringSlice("server.metadata", nil, "A list of key-value pairs defining metadata")
+	Flag.Duration("server.register-interval", 0, "Register interval")
+	Flag.Duration("server.register-ttl", 0, "Registry TTL")
+}
 
 // Server is a simple vine server abstraction
 type Server interface {
@@ -132,12 +157,11 @@ type Stream interface {
 //
 // Example:
 //
-//		type Greeter struct{}
+//	type Greeter struct{}
 //
-//		func (g *Greeter) Hello(context, request, response) error {
-//			return nil
-//		}
-//
+//	func (g *Greeter) Hello(context, request, response) error {
+//		return nil
+//	}
 type Handler interface {
 	Name() string
 	Handler() interface{}
@@ -154,19 +178,6 @@ type Subscriber interface {
 	Endpoints() []*registry.Endpoint
 	Options() SubscriberOptions
 }
-
-type Option func(*Options)
-
-var (
-	DefaultAddress          = ":0"
-	DefaultName             = "go.vine.server"
-	DefaultVersion          = "latest"
-	DefaultId               = uuid.New().String()
-	DefaultServer           Server
-	DefaultRegisterCheck    = func(context.Context) error { return nil }
-	DefaultRegisterInterval = time.Second * 20
-	DefaultRegisterTTL      = time.Second * 30
-)
 
 // DefaultOptions returns config options for the default service
 func DefaultOptions() Options {
@@ -190,10 +201,10 @@ func NewSubscriber(topic string, h interface{}, opts ...SubscriberOption) Subscr
 // the type:
 //
 // type Foo struct{}
-// func (f *Foo) Bar(ctx, req, rsp) error {
-//     return nil
-// }
 //
+//	func (f *Foo) Bar(ctx, req, rsp) error {
+//	    return nil
+//	}
 func NewHandler(h interface{}, opts ...HandlerOption) Handler {
 	return DefaultServer.NewHandler(h, opts...)
 }

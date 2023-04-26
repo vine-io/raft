@@ -76,6 +76,14 @@ func NewOptions(opt ...Option) Options {
 		o(&opts)
 	}
 
+	if opts.RegisterInterval == 0 {
+		opts.RegisterInterval = DefaultRegisterInterval
+	}
+
+	if opts.RegisterTTL == 0 {
+		opts.RegisterTTL = DefaultRegisterTTL
+	}
+
 	if opts.Broker == nil {
 		opts.Broker = broker.DefaultBroker
 	}
@@ -109,6 +117,8 @@ func NewOptions(opt ...Option) Options {
 
 	return opts
 }
+
+type Option func(*Options)
 
 // Name the name of server
 func Name(n string) Option {

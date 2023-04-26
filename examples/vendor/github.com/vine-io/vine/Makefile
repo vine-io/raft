@@ -33,6 +33,10 @@ endif
 	git tag -d $(TAG)
 	git tag $(TAG)
 
+changelog:
+	mkdir -p _output
+	changelog --last --output _output/CHANGELOG.md
+
 build-tag:
 	sed -i "" "s/GitCommit = ".*"/GitCommit = \"$(GIT_COMMIT)\"/g" cmd/vine/version/version.go
 	sed -i "" "s/GitTag    = ".*"/GitTag    = \"$(GIT_TAG)\"/g" cmd/vine/version/version.go
@@ -73,7 +77,7 @@ tar-darwin-arm64:
 	done && \
 	cd _output && rm -fr $(NAME)-darwin-arm64-$(GIT_TAG).tar.gz && tar -zcvf $(NAME)-darwin-arm64-$(GIT_TAG).tar.gz darwin-arm64/* && rm -fr darwin-arm64
 
-tar: tar-windows tar-linux-amd64 tar-linux-arm64 tar-darwin-amd64 tar-darwin-arm64
+tar: changelog tar-windows tar-linux-amd64 tar-linux-arm64 tar-darwin-amd64 tar-darwin-arm64
 
 build:
 	go build -a -installsuffix cgo -ldflags "-s -w $(LDFLAGS)" -o $(NAME) cmd/vine/main.go
@@ -99,7 +103,6 @@ build-linux-tool:
 	GOOS=linux go build -a -installsuffix cgo -ldflags "-s -w ${LDFLAGS}" -o _output/vine.exe cmd/vine/main.go
 
 install:
-	go get github.com/rakyll/statik
 	go get github.com/gogo/protobuf
 	go get github.com/vine-io/vine/cmd/vine
 	go get github.com/vine-io/vine/cmd/protoc-gen-gogo
@@ -110,7 +113,12 @@ install:
 	go get github.com/vine-io/vine/cmd/protoc-gen-cli
 
 openapi:
-	statik -m -f -src third_party/OpenAPI/ -dest service/api/handler/openapi
+	cd $(GOPATH)/src && \
+	protoc  -I . -I $(GOPATH)/src -I $(GOPATH)/src/github.com/gogo/protobuf/gogoproto --gogo_out=:. --vine_out=:. $(ROOT)/lib/api/handler/openapi/proto/openapi.proto
+	sed -i "" 's/json:"ref,omitempty"/json:"$$ref,omitempty"/g' lib/api/handler/openapi/proto/openapi.pb.go
+	sed -i "" 's/json:"applicationJson,omitempty"/json:"application\/json,omitempty"/g' lib/api/handler/openapi/proto/openapi.pb.go
+	sed -i "" 's/json:"applicationXml,omitempty"/json:"application\/xml,,omitempty"/g' lib/api/handler/openapi/proto/openapi.pb.go
+	sed -i "" 's/json:"applicationYaml,omitempty"/json:"application\/yaml,,omitempty"/g' lib/api/handler/openapi/proto/openapi.pb.go
 
 docker:
 	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .

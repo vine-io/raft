@@ -7,9 +7,9 @@ import (
 	context "context"
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
-	vine "github.com/vine-io/vine"
 	client "github.com/vine-io/vine/core/client"
 	server "github.com/vine-io/vine/core/server"
+	_ "github.com/vine-io/vine/lib/api"
 	api "github.com/vine-io/vine/lib/api"
 	math "math"
 )
@@ -26,13 +26,14 @@ var _ = math.Inf
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
 // API Endpoints for OpenAPIService service
-func NewOpenAPIServiceEndpoints() []*api.Endpoint {
-	return []*api.Endpoint{}
+func NewOpenAPIServiceEndpoints() []api.Endpoint {
+	return []api.Endpoint{}
 }
 
 // Client API for OpenAPIService service
 type OpenAPIService interface {
 	GetOpenAPIDoc(ctx context.Context, in *GetOpenAPIDocRequest, opts ...client.CallOption) (*GetOpenAPIDocResponse, error)
+	GetEndpoint(ctx context.Context, in *GetEndpointRequest, opts ...client.CallOption) (*GetEndpointResponse, error)
 }
 
 type openAPIService struct {
@@ -57,19 +58,35 @@ func (c *openAPIService) GetOpenAPIDoc(ctx context.Context, in *GetOpenAPIDocReq
 	return out, nil
 }
 
+func (c *openAPIService) GetEndpoint(ctx context.Context, in *GetEndpointRequest, opts ...client.CallOption) (*GetEndpointResponse, error) {
+	req := c.c.NewRequest(c.name, "OpenAPIService.GetEndpoint", in)
+	out := new(GetEndpointResponse)
+	err := c.c.Call(ctx, req, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for OpenAPIService service
 type OpenAPIServiceHandler interface {
-	GetOpenAPIDoc(*vine.Context, *GetOpenAPIDocRequest, *GetOpenAPIDocResponse) error
+	GetOpenAPIDoc(context.Context, *GetOpenAPIDocRequest, *GetOpenAPIDocResponse) error
+	GetEndpoint(context.Context, *GetEndpointRequest, *GetEndpointResponse) error
 }
 
 func RegisterOpenAPIServiceHandler(s server.Server, hdlr OpenAPIServiceHandler, opts ...server.HandlerOption) error {
 	type openAPIServiceImpl interface {
 		GetOpenAPIDoc(ctx context.Context, in *GetOpenAPIDocRequest, out *GetOpenAPIDocResponse) error
+		GetEndpoint(ctx context.Context, in *GetEndpointRequest, out *GetEndpointResponse) error
 	}
 	type OpenAPIService struct {
 		openAPIServiceImpl
 	}
 	h := &openAPIServiceHandler{hdlr}
+	endpoints := NewOpenAPIServiceEndpoints()
+	for _, ep := range endpoints {
+		opts = append(opts, api.WithEndpoint(&ep))
+	}
 	return s.Handle(s.NewHandler(&OpenAPIService{h}, opts...))
 }
 
@@ -78,5 +95,9 @@ type openAPIServiceHandler struct {
 }
 
 func (h *openAPIServiceHandler) GetOpenAPIDoc(ctx context.Context, in *GetOpenAPIDocRequest, out *GetOpenAPIDocResponse) error {
-	return h.OpenAPIServiceHandler.GetOpenAPIDoc(vine.InitContext(ctx), in, out)
+	return h.OpenAPIServiceHandler.GetOpenAPIDoc(ctx, in, out)
+}
+
+func (h *openAPIServiceHandler) GetEndpoint(ctx context.Context, in *GetEndpointRequest, out *GetEndpointResponse) error {
+	return h.OpenAPIServiceHandler.GetEndpoint(ctx, in, out)
 }

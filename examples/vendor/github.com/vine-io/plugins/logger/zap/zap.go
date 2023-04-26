@@ -35,6 +35,15 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+func init() {
+	logger.Flag.String("logger.zap.format", "console", "Sets the format of log. eg console, json")
+	logger.Flag.String("logger.zap.filename", "", "Prints logger to the given filename")
+	logger.Flag.Int("logger.zap.max-size", 500, "Sets the log file max size (unit: megabytes)")
+	logger.Flag.Int("logger.zap.max-backups", 3, "Sets the log file max backups")
+	logger.Flag.Int("logger.zap.max-age", 15, "Sets the log file keep days")
+	logger.Flag.Bool("logger.zap.compress", false, "Enable compress log fie")
+}
+
 type ZapLog struct {
 	cfg    zap.Config
 	logger *zap.Logger
@@ -79,14 +88,16 @@ func (l *ZapLog) Init(opts ...logger.Option) error {
 		zapConfig.EncoderConfig = zcconfig
 	}
 
-	format := l.opts.Context.Value(encoderJSONKey{})
-
 	zopts := make([]zap.Option, 0)
 	skip, ok := l.opts.Context.Value(callerSkipKey{}).(int)
-	if !ok || skip < 1 {
+	if ok {
 		skip = 1
+		zopts = append(zopts, zap.WithCaller(true), zap.AddCallerSkip(skip))
+	} else {
+		zopts = append(zopts, zap.WithCaller(false))
 	}
-	zopts = append(zopts, zap.AddCallerSkip(skip))
+
+	zopts = append(zopts, zap.AddStacktrace(zapcore.FatalLevel))
 
 	// Set log Level if not default
 	zapConfig.Level = zap.NewAtomicLevel()
@@ -94,6 +105,7 @@ func (l *ZapLog) Init(opts ...logger.Option) error {
 		zapConfig.Level.SetLevel(loggerToZapLevel(l.opts.Level))
 	}
 
+	format := l.opts.Context.Value(encoderJSONKey{})
 	zopts = append(zopts, zap.WrapCore(func(core zapcore.Core) zapcore.Core {
 		cfg := zapConfig.EncoderConfig
 		encoder := zapcore.NewConsoleEncoder(cfg)

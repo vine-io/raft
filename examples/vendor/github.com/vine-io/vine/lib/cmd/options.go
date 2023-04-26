@@ -25,8 +25,7 @@ package cmd
 import (
 	"context"
 
-	"github.com/vine-io/cli"
-
+	"github.com/spf13/cobra"
 	"github.com/vine-io/vine/core/broker"
 	"github.com/vine-io/vine/core/client"
 	"github.com/vine-io/vine/core/client/selector"
@@ -34,7 +33,6 @@ import (
 	"github.com/vine-io/vine/core/server"
 	"github.com/vine-io/vine/lib/cache"
 	"github.com/vine-io/vine/lib/config"
-	"github.com/vine-io/vine/lib/dao"
 	"github.com/vine-io/vine/lib/trace"
 )
 
@@ -44,7 +42,8 @@ type Options struct {
 	Description string
 	Version     string
 
-	app *cli.App
+	root bool // app is root?
+	app  *cobra.Command
 
 	// We need pointers to things, so we can swap them out if needed.
 	Broker   *broker.Broker
@@ -53,7 +52,6 @@ type Options struct {
 	Config   *config.Config
 	Client   *client.Client
 	Server   *server.Server
-	Dialect  *dao.Dialect
 	Cache    *cache.Cache
 	Tracer   *trace.Tracer
 
@@ -63,7 +61,6 @@ type Options struct {
 	Registries map[string]func(...registry.Option) registry.Registry
 	Selectors  map[string]func(...selector.Option) selector.Selector
 	Servers    map[string]func(...server.Option) server.Server
-	Dialects   map[string]func(...dao.Option) dao.Dialect
 	Caches     map[string]func(...cache.Option) cache.Cache
 	Tracers    map[string]func(...trace.Option) trace.Tracer
 
@@ -73,6 +70,14 @@ type Options struct {
 }
 
 type Option func(o *Options)
+
+// NewApp sets the root of command line
+func NewApp(app *cobra.Command) Option {
+	return func(o *Options) {
+		o.root = false
+		o.app = app
+	}
+}
 
 // Name command line Name
 func Name(n string) Option {
@@ -95,7 +100,7 @@ func Version(v string) Option {
 	}
 }
 
-func CliApp(app *cli.App) Option {
+func Command(app *cobra.Command) Option {
 	return func(o *Options) {
 		o.app = app
 	}
@@ -134,12 +139,6 @@ func Client(c *client.Client) Option {
 func Server(s *server.Server) Option {
 	return func(o *Options) {
 		o.Server = s
-	}
-}
-
-func Dialect(d *dao.Dialect) Option {
-	return func(o *Options) {
-		o.Dialect = d
 	}
 }
 
@@ -194,12 +193,5 @@ func NewServer(name string, s func(...server.Option) server.Server) Option {
 func NewTracer(name string, t func(...trace.Option) trace.Tracer) Option {
 	return func(o *Options) {
 		o.Tracers[name] = t
-	}
-}
-
-// NewDialect new dao func
-func NewDialect(name string, t func(...dao.Option) dao.Dialect) Option {
-	return func(o *Options) {
-		o.Dialects[name] = t
 	}
 }

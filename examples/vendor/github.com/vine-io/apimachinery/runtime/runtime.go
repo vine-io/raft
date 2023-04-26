@@ -32,8 +32,8 @@ import (
 // to return a no-op ObjectKindAccessor in cases where it is not expected to be serialized.
 type Object interface {
 	GetObjectKind() schema.ObjectKind
-	DeepCopy() Object
-	DeepFrom(Object)
+	DeepCopyObject() Object
+	DeepFromObject(Object)
 }
 
 type DefaultFunc func(src Object, gvk schema.GroupVersionKind) Object

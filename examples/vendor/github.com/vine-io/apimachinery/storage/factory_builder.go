@@ -22,24 +22,26 @@
 
 package storage
 
-type FactoryBuilder []func(Factory) error
+import "gorm.io/gorm"
 
-func (fb *FactoryBuilder) AddToFactory(m Factory) error {
+type FactoryBuilder []func(*gorm.DB, Factory) error
+
+func (fb *FactoryBuilder) AddToFactory(tx *gorm.DB, m Factory) error {
 	for _, f := range *fb {
-		if err := f(m); err != nil {
+		if err := f(tx, m); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (fb *FactoryBuilder) Register(funcs ...func(Factory) error) {
+func (fb *FactoryBuilder) Register(funcs ...func(*gorm.DB, Factory) error) {
 	for _, f := range funcs {
 		*fb = append(*fb, f)
 	}
 }
 
-func NewFactoryBuilder(funcs ...func(Factory) error) FactoryBuilder {
+func NewFactoryBuilder(funcs ...func(*gorm.DB, Factory) error) FactoryBuilder {
 	var sb FactoryBuilder
 	sb.Register(funcs...)
 	return sb

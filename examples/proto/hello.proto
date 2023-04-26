@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-import "github.com/vine-io/apimachinery/apis/meta/v1/meta.proto";
+import "github.com/vine-io/apimachinery/apis/meta/v1/generated.proto";
 
 option go_package = "pb";
 
@@ -20,25 +20,46 @@ message Frame {
 // +gen:object
 message Epoch {
     // +gen:inline
-    metav1.TypeMeta type_meta = 1;
+    v1.TypeMeta type_meta = 1;
 
-    // +gen:pk
+    // +gen:primaryKey
     string id = 2;
     int64 term = 3;
     int64 index = 4;
+}
+
+// +gen:object
+message EpochList {
+    // +gen:inline
+    v1.TypeMeta type_meta = 1;
+    // +gen:inline
+    v1.ListMeta list_meta = 2;
+
+    repeated Epoch items = 3;
 }
 
 // +gen:dao
 // +gen:object
 message Product {
     // +gen:inline
-    metav1.TypeMeta type_meta = 1;
+    v1.TypeMeta type_meta = 1;
 
-    // +gen:pk
+    // +primaryKey
+    // +gen:primaryKey
     string id = 2;
 
     int64 date = 3;
     string company = 4;
+}
+
+// +gen:object
+message ProductList {
+    // +gen:inline
+    v1.TypeMeta type_meta = 1;
+    // +gen:inline
+    v1.ListMeta list_meta = 2;
+
+    repeated Product items = 3;
 }
 
 message SnapshotMarshaller {

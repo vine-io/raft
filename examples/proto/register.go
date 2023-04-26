@@ -6,6 +6,7 @@ import (
 	"github.com/vine-io/apimachinery/runtime"
 	"github.com/vine-io/apimachinery/schema"
 	apistorage "github.com/vine-io/apimachinery/storage"
+	"gorm.io/gorm"
 )
 
 // GroupName is the group name for this API
@@ -15,23 +16,21 @@ const GroupName = ""
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1"}
 
 var (
-	FactoryBuilder = apistorage.NewFactoryBuilder(addKnownStorages)
-	store          = make(map[schema.GroupVersionKind]apistorage.Storage)
-	AddToFactory   = FactoryBuilder.AddToFactory
-	SchemaBuilder  = runtime.NewSchemeBuilder(addKnownTypes)
-	AddToScheme    = SchemaBuilder.AddToScheme
-	sets           = make([]runtime.Object, 0)
+	SchemaBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	AddToScheme   = SchemaBuilder.AddToScheme
+	sets          = make([]runtime.Object, 0)
 )
+
+var (
+	FactoryBuilder = apistorage.NewFactoryBuilder(addKnownFactory)
+	AddToBuilder   = FactoryBuilder.AddToFactory
+	storageSet     = make([]apistorage.Storage, 0)
+)
+
+func addKnownFactory(db *gorm.DB, f apistorage.Factory) error {
+	return f.AddKnownStorages(db, SchemeGroupVersion, storageSet...)
+}
 
 func addKnownTypes(scheme runtime.Scheme) error {
 	return scheme.AddKnownTypes(SchemeGroupVersion, sets...)
-}
-
-func addKnownStorages(factory apistorage.Factory) error {
-	for k, v := range store {
-		if err := factory.AddKnownStorage(k, v); err != nil {
-			return nil
-		}
-	}
-	return nil
 }

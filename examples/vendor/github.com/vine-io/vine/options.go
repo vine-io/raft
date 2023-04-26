@@ -24,10 +24,11 @@ package vine
 
 import (
 	"context"
+	goflag "flag"
 	"time"
 
-	"github.com/vine-io/cli"
-	"github.com/vine-io/gscheduler"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/vine-io/vine/core/broker"
 	"github.com/vine-io/vine/core/client"
@@ -37,23 +38,19 @@ import (
 	"github.com/vine-io/vine/lib/cache"
 	"github.com/vine-io/vine/lib/cmd"
 	"github.com/vine-io/vine/lib/config"
-	"github.com/vine-io/vine/lib/dao"
-	"github.com/vine-io/vine/lib/scheduler"
 	"github.com/vine-io/vine/lib/trace"
 )
 
 // Options for vine service
 type Options struct {
-	Broker    broker.Broker
-	Cmd       cmd.Cmd
-	Client    client.Client
-	Config    config.Config
-	Server    server.Server
-	Trace     trace.Tracer
-	Dialect   dao.Dialect
-	Cache     cache.Cache
-	Registry  registry.Registry
-	Scheduler gscheduler.Scheduler
+	Broker   broker.Broker
+	Cmd      cmd.Cmd
+	Client   client.Client
+	Config   config.Config
+	Server   server.Server
+	Trace    trace.Tracer
+	Cache    cache.Cache
+	Registry registry.Registry
 
 	// Before and After functions
 	BeforeStart []func() error
@@ -64,24 +61,25 @@ type Options struct {
 	// Other options for implementations of the interface
 	// can be stored in a context
 	Context context.Context
+	Cancel  context.CancelFunc
 
 	Signal bool
 }
 
 func newOptions(opts ...Option) Options {
+	ctx, cancel := context.WithCancel(context.Background())
 	opt := Options{
-		Broker:    broker.DefaultBroker,
-		Cmd:       cmd.DefaultCmd,
-		Client:    client.DefaultClient,
-		Config:    config.DefaultConfig,
-		Server:    server.DefaultServer,
-		Trace:     trace.DefaultTracer,
-		Dialect:   dao.DefaultDialect,
-		Cache:     cache.DefaultCache,
-		Registry:  registry.DefaultRegistry,
-		Scheduler: scheduler.DefaultScheduler,
-		Context:   context.Background(),
-		Signal:    true,
+		Broker:   broker.DefaultBroker,
+		Cmd:      cmd.DefaultCmd,
+		Client:   client.DefaultClient,
+		Config:   config.DefaultConfig,
+		Server:   server.DefaultServer,
+		Trace:    trace.DefaultTracer,
+		Cache:    cache.DefaultCache,
+		Registry: registry.DefaultRegistry,
+		Context:  ctx,
+		Cancel:   cancel,
+		Signal:   true,
 	}
 
 	for _, o := range opts {
@@ -136,13 +134,6 @@ func HandleSignal(b bool) Option {
 func Server(s server.Server) Option {
 	return func(o *Options) {
 		o.Server = s
-	}
-}
-
-// Dialect sets the dialect to use
-func Dialect(d dao.Dialect) Option {
-	return func(o *Options) {
-		o.Dialect = d
 	}
 }
 
@@ -222,17 +213,51 @@ func Metadata(md map[string]string) Option {
 	}
 }
 
-// Flags that can be passed to service
-func Flags(flags ...cli.Flag) Option {
+// GoFlags that can be passed to service
+func GoFlags(flags ...*goflag.Flag) Option {
 	return func(o *Options) {
-		o.Cmd.App().Flags = append(o.Cmd.App().Flags, flags...)
+		for i := range flags {
+			o.Cmd.App().PersistentFlags().AddGoFlag(flags[i])
+		}
 	}
 }
 
-// Action can be used to parse user provided cli options
-func Action(a func(*cli.Context) error) Option {
+// GoFlagSet that can be passed to service
+func GoFlagSet(flags ...*goflag.FlagSet) Option {
 	return func(o *Options) {
-		o.Cmd.App().Action = a
+		for _, flag := range flags {
+			o.Cmd.App().PersistentFlags().AddGoFlagSet(flag)
+		}
+	}
+}
+
+// Flags that can be passed to service
+func Flags(flags ...*pflag.Flag) Option {
+	return func(o *Options) {
+		for _, flag := range flags {
+			o.Cmd.App().PersistentFlags().AddFlag(flag)
+		}
+	}
+}
+
+// FlagSets that can be passed to service
+func FlagSets(flagSet *pflag.FlagSet) Option {
+	return func(o *Options) {
+		o.Cmd.App().PersistentFlags().AddFlagSet(flagSet)
+	}
+}
+
+// Action can be used to parse user provided *cobra. options
+func Action(a func(*cobra.Command, []string) error) Option {
+	return func(o *Options) {
+		o.Cmd.App().RunE = a
+	}
+}
+
+// AddCommands add more *cobra.Command
+func AddCommands(commands ...*cobra.Command) Option {
+	return func(o *Options) {
+		o.Cmd.App().AddCommand(commands...)
 	}
 }
 
